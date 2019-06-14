@@ -48,15 +48,11 @@ static navio + #1, #1099
 aleatorio : var #1
 static aleatorio + #0, #27
 
-;Regitra a velocidade inicial do jogo
-;OBS:Mude aqui a velocidade inicial do jogo
-velocidade : var #1
-static velocidade + #0, #15000
 
 ;Registra o quanto soma no contador do delay apos um processo de renderizacao do navio no meio do delay
 ;OBS: quando move o barco muitas instruçoes sao execultadas e com isso o delay tem q ser arrumado
 velocidadeDelay : var #1
-static velocidadeDelay + #0, #12400 ;mudar aqui para arrumar o delay quando o navio anda e muda a velocidade do jogo
+static velocidadeDelay + #0, #2000 ;mudar aqui para arrumar o delay quando o navio anda e muda a velocidade do jogo
 
 ;Registra o score do jogo
 score : var #1
@@ -67,7 +63,7 @@ gameover: string "GAME OVER!"
 
 ;strings do menu
 menu1: string "UTILIZE AS TECLAS: A D PARA JOGAR"
-menu2: string "PRECIONE QUALQUER TELCA PARA CONTINUAR"
+menu2: string "PRESSIONE QUALQUER TECLA PARA CONTINUAR"
 
 
 
@@ -78,22 +74,50 @@ menu2: string "PRECIONE QUALQUER TELCA PARA CONTINUAR"
 ;---- Inicio do Programa Principal -----
 
 main:
+	inchar r0
+	nop
+	inchar r0
+	nop
+	
 	call DesenhaMenu 	 ; desenha o menu do jogo antes dele comecar
 	call EsperaTecla  	 ; espera q o jogador digite alguma tecla para continuar. OBS:A teclad n é usada para nada
 	call DesenhaFundo 	 ; desenha o fundo inteiro de acordo com o definido na funcao. OBS:Tal funcao foi desenvolvida para otimizar o codigo e impedir q o mesmo tenha q desenhar o fundo toda a vez
-	fundoGerado: 		 ; a partir deste ponto o codigo n desenha o fundo inteiro novamente
-	call LimpaTela       ; limpa a tela, esta funcao apaga os antigos naivos e ices ****ATENCAO:Pode ocasionar flickering(tela piscando), cuido ao utilizar esta funcao
-	call Desenha         ; desenha a tela, r0 posicao do navio, r1 posicao dos ices
-	call ProximoQuadro   ; processa o proximo quadro, gerando onde estara o novos ices
-	call LeTecladoEDelay ; Le o que esta no teclado e da um delay para mudar o ice, atualiza tb o navio.
-	call VelocidadeNova  ; atualiza a velociade do jogo
-	call VerificaBatida  ; verifica se o navio bateu, OBS SE BATER O CODIGO PARA
+	fundoGerado:		 ; a partir deste ponto o codigo n desenha o fundo inteiro novamente
+		
+		call LimpaTela       ; limpa a tela, esta funcao apaga os antigos naivos e ices ****ATENCAO:Pode ocasionar flickering(tela piscando), cuido ao utilizar esta funcao
+		
+		loadn r1, #10
+		mod r1, r0, r1
+		cmp r1, r2			; if (mod(c/10)==0
+		ceq LetecladoEAnda	; Chama Rotina de movimentacao da Nave
+	
+		loadn r1, #20
+		mod r1, r0, r1
+		cmp r1, r2		; if (mod(c/30)==0
+		ceq ProximoQuadro	; Chama Rotina de movimentacao do Alien
+	
+		loadn r1, #2
+		mod r1, r0, r1
+		cmp r1, r2		; if (mod(c/2)==0
+		ceq Desenha	; Chama Rotina de movimentacao do Tiro
+		
+		loadn r1, #8
+		mod r1, r0, r1
+		cmp r1, r2		; if (mod(c/2)==0
+		ceq AtulizaVelocidade
+		
+		call VerificaBatida  ; verifica se o navio bateu, OBS SE BATER O CODIGO PARA
+		
+		call Delay
+		inc r0 	;c++
+		jmp fundoGerado
 
 	jmp fundoGerado 	 ; cria o loop do jogo
 	
 ;---- Fim do Programa Principal -----
 	
 ;---- Inicio das Subrotinas -----
+
 
 EsperaTecla:
 	push r0 ; entrada do teclado
@@ -165,6 +189,9 @@ DesenhaFundo:
 
 DesenhaFundoLoop:
 	outchar r0, r1 ; envia para a tela uma letra
+	nop
+	nop
+	
 	inc r1		   ; vai para o proximo local a ser impresso na tela (atuliza a posicao da tela)
 	cmp r1, r2     ; verifica se a tela acabou
 	jeq DesenhaFundoSai  ; se acabou sai
@@ -197,6 +224,9 @@ Perdeu:
 
 PerdeuLoop:
 	outchar r2, r1 ; envia para a tela uma letra
+	nop
+	nop
+	
 	inc r0		   ; vai para o proximo endereco da string, logo proxima letra
 	inc r1		   ; vai para o proximo local a ser impresso na tela (atuliza a posicao da tela)
 	loadi r2, r0   ; carrega a proxima letra
@@ -297,54 +327,23 @@ VerificaBatidaSai:
 	pop r0 ; restaura o registrador
 	rts
 
-
-VelocidadeNova:
-	push r1 ; velocidade
-	push r2 ; quanto muda
-
-	load r1, velocidade ; carrega a velocidade atual
-	loadn r2, #10 ;carrega o quanto altera por ciclo do programa OBS: ALTERAR AQUI O QUANDO MUDA
-	sub r1, r1, r2 ; aumenta a velocidade
-	store velocidade, r1 ; grava na memoria
-
-	;muda a parte da velocidade ao movimentar o navio
-	loadn r2, #0 ;modifica o quanto altera na velociade do delay, caso seja igual o daley sobe muito rapido
-	load r1, velocidadeDelay ; carrega o endereco novo, do delay ao movimentar o navio
-	add r1, r1, r2 ; aumenta a velocidade
-	store velocidadeDelay, r1 ; grava na memoria
-
-	pop r2 ; restaura o registrador
-	pop r1 ; restaura o registrador
-	rts
-
-LeTecladoEDelay:
+LetecladoEAnda:
 	push r0 ; guarda tecla lida
 	push r1 ; contador para o delay
 	push r2 ; armazena a letra 'a' para comparar
 	push r3 ; armazena a letra 'd' para comparar
-	push r4 ; guarda o quanto se deve somar ao atualizar o navio OBS: tal operacao é custosa, sendo assim necessario atualizar o contador de delay
-	push r5 ; guarda a velocidade (o criterio de parada do contador)
-
-	loadn r1, #0 ; zera o contador
+	
 	loadn r2, #97 ; carrega a letra 'a'
 	loadn r3, #100 ; carrega a letra 'd'
-	load r4, velocidadeDelay ; carrega o quanto ajusta ao mover o barco
-	load r5, velocidade
 
-LeTecladoEDelayLoop:
+LetecladoEAndaExc:
 	inchar r0					; le o q esta no teclado
 	cmp r0, r2					; verifica se o navio deve andar para a esquerda
 	ceq NavioEsquerda 			; caso sim, chama uma funcao para andar ele para  a esquerda OBS: esta funcao ja ajusta o contador por conta do custo da operacao
 	cmp r0, r3                  ; verifica se o navio deve andar para a direita
 	ceq NavioDireita 			; se sim, chama a funcao para andar ele para a direita OBS: esta funcao ja ajusta o contador por conta do custo da operacao
-	inc r1                      ; soma um ao contador
-	cmp r1, r5 					; verifica se ja passou o tempo de delay
-	jeg LeTecladoEDelaySai 		; se sim
-	jmp LeTecladoEDelayLoop 	; se nao
 
-LeTecladoEDelaySai:
-	pop r5 ; restaura o registrador
-	pop r4 ; restaura o registrador
+LetecladoEAndaSai:
 	pop r3 ; restaura o registrador
 	pop r2 ; restaura o registrador
 	pop r1 ; restaura o registrador
@@ -627,42 +626,69 @@ DesenhaLoop:
 	;navio
 	loadi r6, r0 ; carrega a parte de cima do navio
 	outchar r3, r6 ; desenha na tela
+	nop
+	nop
 	inc r0 ;vai para o proximo end
 	loadi r6, r0 ; carreda a parte de baixo
 	outchar r4, r6 ; desenha na tela
+	nop
+	nop
 
 	;ice 1
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 2
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 3
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 4
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 5
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 6
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 7
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
 	inc r1         ; vai para o end do proximo ice
+	nop
+	nop
+	
 	;ice 8
 	loadi r6, r1   ; carrega a coordenada do ice a ser desenhado
 	outchar r5, r6 ; desenha
-
+	nop
+	nop
+	
 DesenhaSai:
 	pop r6 ; restaura o registrador
 	pop r5 ; restaura o registrador
@@ -670,4 +696,50 @@ DesenhaSai:
 	pop r3 ; restaura o registrador
 	pop r1 ; restaura o registrador
 	pop r0 ; restaura o registrador
+	rts
+	
+Delay:
+						;Utiliza Push e Pop para nao afetar os Ristradores do programa principal
+	push r0
+	push r1
+	
+	loadn r1, #2  ; a
+   
+   Delay_volta2:				;Quebrou o contador acima em duas partes (dois loops de decremento)
+	load r0, velocidadeDelay	; b
+   
+   Delay_volta: 
+	dec r0					; (4*a + 6)b = 1000000  == 1 seg  em um clock de 1MHz
+	jnz Delay_volta	
+	dec r1
+	jnz Delay_volta2
+	
+	pop r1
+	pop r0
+	
+	rts
+
+AtulizaVelocidade:
+	push r0
+	push r1
+	push r2
+	
+	load r0, velocidadeDelay
+	loadn r1, #5
+	loadn r2, #300
+	
+	sub r0, r0, r1
+	
+	cmp r0, r2
+	
+	jel AtulizaVelocidadeMax
+	
+	store velocidadeDelay, r0
+	
+AtulizaVelocidadeMax:	
+	
+	pop r2
+	pop r1
+	pop r0
+	
 	rts
